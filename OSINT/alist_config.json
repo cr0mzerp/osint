@@ -1,0 +1,29 @@
+{
+  "version": "3.41.0",
+  "address": "0.0.0.0",
+  "port": 5244,
+  "jwt_secret": "your-jwt-secret-here",
+  "token_expires_in": 48,
+  "database": {
+    "type": "sqlite3",
+    "host": "",
+    "port": 0,
+    "user": "",
+    "password": "",
+    "name": "/root/.config/alist/data.db",
+    "db_file": "/root/.config/alist/data.db",
+    "table_prefix": "x_",
+    "ssl_mode": ""
+  },
+  "scheme": {
+    "address": "0.0.0.0",
+    "http_port": 5244,
+    "https_port": -1,
+    "force_https": false,
+    "cert_file": "",
+    "key_file": ""
+  },
+  "s3": {
+    "enable": false
+  }
+}
