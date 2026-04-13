@@ -1,0 +1,1200 @@
+{% extends "base.html" %}
+{% block title %}Veri Arama · OSINT{% endblock %}
+
+{% block extra_css %}
+.search-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(3, 4, 12, 0.82);
+    backdrop-filter: blur(14px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.35s ease, visibility 0.35s;
+}
+.search-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+.search-overlay-inner {
+    width: min(480px, 100%);
+    padding: 2rem 2.25rem;
+    border-radius: 22px;
+    border: 1px solid rgba(129, 140, 248, 0.35);
+    background: linear-gradient(165deg, rgba(30, 27, 75, 0.9), rgba(15, 15, 35, 0.95));
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 40px 100px rgba(0,0,0,0.65), 0 0 80px rgba(99, 102, 241, 0.15);
+    text-align: center;
+    animation: slideUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes glitch {
+    0%, 100% { transform: translate(0); text-shadow: 0 0 20px rgba(34, 211, 238, 0.4); }
+    20% { transform: translate(-2px, 1px); text-shadow: -2px 0 #f43f5e; }
+    40% { transform: translate(2px, -1px); text-shadow: 2px 0 #22d3ee; }
+    60% { transform: translate(-1px, -1px); }
+}
+.overlay-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin: 0 0 0.5rem;
+    animation: glitch 2.5s ease-in-out infinite;
+}
+.rings {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: 1.25rem auto 1.5rem;
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(3, 4, 12, 0.92);
+    backdrop-filter: blur(20px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s;
+}
+.modal-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+.modal-content {
+    width: min(750px, 95vw);
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 2.5rem;
+    border-radius: 24px;
+    border: 1px solid rgba(129, 140, 248, 0.4);
+    background: linear-gradient(165deg, rgba(30, 27, 75, 0.96), rgba(15, 15, 35, 0.98));
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 60px 140px rgba(0,0,0,0.8), 0 0 120px rgba(99, 102, 241, 0.3);
+    animation: modalIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes modalIn {
+    from { opacity: 0; transform: scale(0.92) translateY(25px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+.modal-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--text);
+    letter-spacing: -0.02em;
+}
+.modal-close {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    padding: 0.6rem 1.2rem;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 1.4rem;
+    font-weight: 600;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.modal-close:hover {
+    background: rgba(239, 68, 68, 0.3);
+    border-color: rgba(239, 68, 68, 0.5);
+    transform: scale(1.08);
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+}
+
+/* Result Highlight */
+.highlight {
+    background: linear-gradient(120deg, rgba(251, 191, 36, 0.4), rgba(251, 146, 60, 0.4));
+    padding: 0.1em 0.3em;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+/* Result Table Improvements */
+.data tr {
+    transition: background 0.2s, transform 0.15s;
+}
+.data tr:hover {
+    background: rgba(99, 102, 241, 0.1);
+    transform: scale(1.005);
+}
+.data td {
+    position: relative;
+}
+.result-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+.data tr:hover .result-actions {
+    opacity: 1;
+}
+.action-btn {
+    padding: 0.3rem 0.6rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.08);
+    color: var(--muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.action-btn:hover {
+    background: rgba(99, 102, 241, 0.3);
+    border-color: rgba(99, 102, 241, 0.5);
+    color: #a5b4fc;
+    transform: translateY(-2px);
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 400;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.toast {
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: linear-gradient(165deg, rgba(30, 27, 75, 0.95), rgba(15, 15, 35, 0.98));
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    animation: toastIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+    min-width: 280px;
+}
+@keyframes toastIn {
+    from { opacity: 0; transform: translateX(100px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+.toast.success { border-left: 4px solid #10b981; }
+.toast.error { border-left: 4px solid #ef4444; }
+.toast.info { border-left: 4px solid #3b82f6; }
+
+/* Statistics Dashboard */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.stat-card {
+    padding: 1.5rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: linear-gradient(165deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1));
+    text-align: center;
+    transition: all 0.3s;
+}
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(99, 102, 241, 0.3);
+}
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #a5b4fc;
+    margin-bottom: 0.5rem;
+}
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* History Items */
+.history-item {
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.history-item:hover {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateX(5px);
+}
+.history-item.replay-btn {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: #6ee7b7;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    margin-left: auto;
+}
+
+/* Export Dropdown */
+.export-dropdown {
+    position: relative;
+    display: inline-block;
+}
+.export-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(15, 15, 35, 0.98);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    display: none;
+    z-index: 100;
+    min-width: 150px;
+}
+.export-menu.is-open {
+    display: block;
+    animation: menuIn 0.2s ease;
+}
+@keyframes menuIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.export-item {
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--muted);
+}
+.export-item:hover {
+    background: rgba(99, 102, 241, 0.3);
+    color: #a5b4fc;
+}
+
+/* Loading Skeleton */
+.skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+    background-size: 200% 100%;
+    animation: skeleton 1.5s infinite;
+    border-radius: 8px;
+}
+@keyframes skeleton {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Tooltip */
+[data-tooltip] {
+    position: relative;
+}
+[data-tooltip]:after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(15, 15, 35, 0.98);
+    color: var(--muted);
+    font-size: 0.8rem;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s;
+    z-index: 100;
+}
+[data-tooltip]:hover:after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(-12px);
+}
+
+/* Filter Bar */
+.filter-bar {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+}
+.filter-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 0.9rem;
+    outline: none;
+}
+.filter-input::placeholder {
+    color: var(--muted);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: var(--muted);
+}
+.empty-state-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.rings span {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: var(--accent2);
+    animation: spin 1.2s linear infinite;
+}
+.rings span:nth-child(2) { inset: 8px; border-top-color: var(--accent); animation-duration: 1.6s; animation-direction: reverse; }
+.rings span:nth-child(3) { inset: 16px; border-top-color: #a78bfa; animation-duration: 0.9s; }
+.progress-track {
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.45);
+    overflow: hidden;
+    margin: 1rem 0;
+    border: 1px solid var(--border);
+}
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #6366f1, #22d3ee, #a78bfa);
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+    transition: width 0.25s ease-out;
+}
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.overlay-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.form-grid-logs {
+    display: grid;
+    grid-template-columns: minmax(140px, 190px) 1fr;
+    gap: 0.9rem 1.2rem;
+    align-items: center;
+}
+@media (max-width: 640px) {
+    .form-grid-logs { grid-template-columns: 1fr; }
+}
+.log-check-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    grid-column: 1/-1;
+}
+.log-check-row label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.intro-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+@media (max-width: 720px) { .intro-cards { grid-template-columns: 1fr; } }
+.intro-card {
+    padding: 1rem 1.15rem;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: rgba(129, 140, 248, 0.06);
+    font-size: 0.88rem;
+    color: var(--muted);
+    animation: slideUp 0.55s ease both;
+}
+.intro-card strong { color: var(--accent2); }
+{% endblock %}
+
+{% block content %}
+{% if root_exists %}
+<div class="page-head">
+    <h1>Yerel metin tabanı arama</h1>
+    <p>
+        Part klasörleri altındaki büyük <code>.txt</code> dosyalarında <strong>satır satır</strong> tarama.
+        Arka planda çalışır; <strong>İptal</strong> ile işlemi güvenle durdurabilirsiniz.
+    </p>
+    <p class="mono" style="font-size:0.82rem;color:var(--muted);margin:0.75rem 0 0;word-break:break-all;opacity:0.9;">{{ log_root }}</p>
+</div>
+
+<div class="intro-cards">
+    <div class="intro-card" style="animation-delay:0.05s;">
+        <strong>Asenkron motor</strong> — İstek UI'yi kilitlemez; ilerleme çubuğu dosya sayısına göre güncellenir.
+    </div>
+    <div class="intro-card" style="animation-delay:0.12s;">
+        <strong>Skill = veri kategorisi</strong> — Her skill bir veri türünü filtreler: <span class="mono">discord</span> → token/webhook; <span class="mono">email</span> → şifre/kimlik; <span class="mono">wallet</span> → seed/cüzdan; <span class="mono">telegram</span> → bot token/kanal. Seçtiğiniz kategorideki dosyalar taranır.
+    </div>
+</div>
+
+<div class="card" style="animation: slideUp 0.7s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;">
+    <form id="logSearchForm" class="form-grid-logs">
+        <label for="part">Part klasörü</label>
+        <select name="part" id="part">
+            <option value="all" {% if form.part == 'all' %}selected{% endif %}>Tüm part klasörleri</option>
+            {% for p in parts %}
+            <option value="{{ p.name }}" {% if form.part == p.name %}selected{% endif %}>{{ p.name }} ({{ p.txt_count }} txt)</option>
+            {% endfor %}
+        </select>
+
+        {% if skills %}
+        <label for="skill-filter">Skill süzgeci</label>
+        <input type="text" id="skill-filter" placeholder="Listede ara… (ör. oyun, e-posta)" autocomplete="off">
+
+        <label for="skill_id">Skill (yol filtresi)</label>
+        <select name="skill_id" id="skill_id" size="10" style="min-height:200px;font-size:0.86rem;" aria-describedby="skillHintText">
+            <option value="all" data-label="tüm"
+                    data-hint="Skill seçmezseniz seçili part altındaki tüm .txt dosyaları taranır. Klasör adlarınızda (ör. discord, telegram) geçen kelimeye göre daraltmak için bir skill seçin."
+                    {% if form.skill_id == 'all' %}selected{% endif %}>— Tüm dosyalar (skill yok) —</option>
+            {% set sorted_skills = skills|sort(attribute='path_keyword') %}
+            {% for group, items in sorted_skills|groupby('path_keyword') %}
+            <optgroup label="{{ skill_group_labels.get(group, group|upper) if skill_group_labels is defined else group|upper }}">
+                {% for skill in items %}
+                <option value="{{ skill.id }}"
+                        data-label="{{ (skill.name ~ ' ' ~ skill.path_keyword)|lower }}"
+                        data-hint="{{ skill.hint|e }}"
+                        {% if form.skill_id == skill.id %}selected{% endif %}
+                        title="{{ skill.hint|e }}">
+                    [{{ skill.priority }}] {{ skill.name }} ({{ skill.path_keyword }})
+                </option>
+                {% endfor %}
+            </optgroup>
+            {% endfor %}
+        </select>
+        <div id="skillHintBox" style="grid-column:1/-1;padding:1rem 1.1rem;border-radius:12px;background:rgba(0,0,0,0.28);border:1px solid var(--border);">
+            <strong style="color:var(--accent2);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.06em;">Skill ipucu</strong>
+            <p id="skillHintText" style="margin:0.5rem 0 0;font-size:0.88rem;color:var(--muted);line-height:1.55;"></p>
+        </div>
+        <p class="meta-line" style="grid-column:1/-1;margin:0;">{{ skills|length }} skill. Her skill bir veri kategorisini temsil eder (ör. email → şifreler, wallet → cüzdanlar). Seçtiğiniz skill, dosya yolunda ilgili anahtar kelimeyi içeren <code>.txt</code> dosyalarını tarar.</p>
+        {% endif %}
+
+        <label for="mode">Arama modu</label>
+        <select name="mode" id="mode">
+            <option value="contains" {% if form.mode == 'contains' %}selected{% endif %}>Metin içerir</option>
+            <option value="regex" {% if form.mode == 'regex' %}selected{% endif %}>Regex (Python)</option>
+            <option value="preset_email" {% if form.mode == 'preset_email' %}selected{% endif %}>E-posta deseni</option>
+            <option value="preset_tc" {% if form.mode == 'preset_tc' %}selected{% endif %}>TC kimlik (11 hane)</option>
+            <option value="preset_iban" {% if form.mode == 'preset_iban' %}selected{% endif %}>IBAN deseni</option>
+            <option value="preset_phone" {% if form.mode == 'preset_phone' %}selected{% endif %}>Telefon numarası</option>
+            <option value="preset_ip" {% if form.mode == 'preset_ip' %}selected{% endif %}>IP adresi</option>
+            <option value="preset_btc" {% if form.mode == 'preset_btc' %}selected{% endif %}>Bitcoin adresi</option>
+            <option value="preset_eth" {% if form.mode == 'preset_eth' %}selected{% endif %}>Ethereum adresi</option>
+            <option value="preset_url" {% if form.mode == 'preset_url' %}selected{% endif %}>URL deseni</option>
+        </select>
+
+        <label for="query">Sorgu</label>
+        <input type="text" name="query" id="query" value="{{ form.query }}"
+               placeholder="Metin veya regex (preset modlarda isteğe bağlı ek filtre)">
+
+        <label for="max_results">Maks. sonuç</label>
+        <input type="number" name="max_results" id="max_results" min="1" max="5000" value="{{ form.max_results }}">
+
+        <label for="max_per_file">Dosya başına satır</label>
+        <input type="number" name="max_per_file" id="max_per_file" min="1" max="500" value="{{ form.max_per_file }}">
+
+        <label for="workers">Paralel işçi</label>
+        <input type="number" name="workers" id="workers" min="1" max="32" value="{{ form.workers }}">
+
+        <div class="log-check-row">
+            <label><input type="checkbox" name="use_rg" id="use_rg" value="1" {% if form.use_rg %}checked{% endif %}> rg (ripgrep) ile ara</label>
+            <label><input type="checkbox" name="case_insensitive" id="case_insensitive" value="1" {% if form.case_insensitive %}checked{% endif %}> Büyük/küçük harf yok say</label>
+            <label><input type="checkbox" name="strict_tc" id="strict_tc" value="1" {% if form.strict_tc %}checked{% endif %}> TC checksum doğrula</label>
+            <label><input type="checkbox" name="deduplicate" id="deduplicate" value="1" {% if form.deduplicate %}checked{% endif %}> Tekrarları kaldır</label>
+            <label><input type="checkbox" name="boolean_mode" id="boolean_mode" value="1" {% if form.boolean_mode %}checked{% endif %}> Boolean arama (AND/OR/NOT)</label>
+        </div>
+
+        <div style="grid-column:1/-1;display:flex;gap:0.5rem;align-items:center;">
+            <button type="submit" class="btn btn-primary" id="btnStartSearch">Taramayı başlat</button>
+            <div class="export-dropdown" id="exportDropdown" style="display:none;">
+                <button type="button" class="btn btn-secondary" id="btnExport">Dışa aktar ▼</button>
+                <div class="export-menu" id="exportMenu">
+                    <div class="export-item" data-format="csv">CSV</div>
+                    <div class="export-item" data-format="json">JSON</div>
+                    <div class="export-item" data-format="txt">TXT</div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-secondary" id="btnHistory" title="Arama geçmişi">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+            </button>
+            <button type="button" class="btn btn-secondary" id="btnStats" title="İstatistikler">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+            </button>
+            <button type="button" class="btn btn-secondary" id="btnTheme" title="Tema değiştir">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+            </button>
+        </div>
+    </form>
+
+    <p id="clientError" class="alert alert-error" style="display:none;margin-top:1rem;"></p>
+</div>
+
+<div id="log-results-wrap" class="card" style="margin-top:1.35rem;display:none;animation: slideUp 0.55s ease both;">
+    <h2 style="margin:0 0 1rem;font-size:1.1rem;font-weight:800;">Eşleşmeler</h2>
+    <p id="log-results-meta" class="meta-line"></p>
+    <div id="log-results-table" style="overflow-x:auto;border-radius:12px;border:1px solid var(--border);"></div>
+</div>
+
+<div id="searchOverlay" class="search-overlay" role="dialog" aria-modal="true" aria-labelledby="overlayStatus">
+    <div class="search-overlay-inner">
+        <p class="overlay-title" id="overlayStatus">Tarama çalışıyor</p>
+        <p class="meta-line" id="overlaySub" style="margin:0 0 0.5rem;">Dosyalar taranıyor…</p>
+        <div class="rings" aria-hidden="true">
+            <span></span><span></span><span></span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="overlayProgress"></div>
+        </div>
+        <p class="mono" id="overlayStats" style="font-size:0.85rem;color:var(--muted);margin:0;">0 / 0 dosya</p>
+        <div class="overlay-actions">
+            <button type="button" class="btn btn-danger" id="btnAbortSearch">İptal et</button>
+        </div>
+    </div>
+</div>
+
+<!-- History Modal -->
+<div id="historyModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title" style="display:flex;align-items:center;gap:0.5rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#gradient1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                Arama Geçmişi
+                <svg width="0" height="0">
+                    <defs>
+                        <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#818cf8;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </h2>
+            <button class="modal-close" id="closeHistory">&times;</button>
+        </div>
+        <div id="historyList"></div>
+        <div style="margin-top:1.5rem;text-align:right;">
+            <button class="btn btn-secondary" id="clearHistory" style="display:flex;align-items:center;gap:0.5rem;margin-left:auto;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                Geçmişi temizle
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Modal -->
+<div id="statsModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title" style="display:flex;align-items:center;gap:0.5rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#gradient2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                İstatistikler
+                <svg width="0" height="0">
+                    <defs>
+                        <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#818cf8;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </h2>
+            <button class="modal-close" id="closeStats">&times;</button>
+        </div>
+        <div class="stats-grid" id="statsGrid"></div>
+        <div id="modeDistribution"></div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title" style="display:flex;align-items:center;gap:0.5rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#gradient3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                Sonuç Önizleme
+                <svg width="0" height="0">
+                    <defs>
+                        <linearGradient id="gradient3" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#818cf8;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </h2>
+            <button class="modal-close" id="closePreview">&times;</button>
+        </div>
+        <div id="previewContent" class="mono" style="background:rgba(0,0,0,0.3);padding:1.25rem;border-radius:12px;white-space:pre-wrap;word-break:break-all;font-size:0.9rem;"></div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer" class="toast-container"></div>
+
+{% else %}
+<div class="card">
+    <div class="alert alert-error">
+        Kök dizin bulunamadı. Yolu kontrol edin veya <code>OSINT_LOG_ROOT</code> ortam değişkenini ayarlayın.
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if root_exists %}
+<script>
+(function () {
+    var form = document.getElementById('logSearchForm');
+    var overlay = document.getElementById('searchOverlay');
+    var progressEl = document.getElementById('overlayProgress');
+    var statsEl = document.getElementById('overlayStats');
+    var subEl = document.getElementById('overlaySub');
+    var statusTitle = document.getElementById('overlayStatus');
+    var btnAbort = document.getElementById('btnAbortSearch');
+    var clientError = document.getElementById('clientError');
+    var resultsWrap = document.getElementById('log-results-wrap');
+    var resultsMeta = document.getElementById('log-results-meta');
+    var resultsTable = document.getElementById('log-results-table');
+    var pollTimer = null;
+    var currentJobId = null;
+    var skillIdEl = document.getElementById('skill_id');
+    var skillHintText = document.getElementById('skillHintText');
+    function refreshSkillHint() {
+        if (!skillHintText || !skillIdEl) return;
+        var o = skillIdEl.options[skillIdEl.selectedIndex];
+        skillHintText.textContent = o ? (o.getAttribute('data-hint') || '') : '';
+    }
+    if (skillIdEl && skillHintText) {
+        skillIdEl.addEventListener('change', refreshSkillHint);
+        skillIdEl.addEventListener('keyup', refreshSkillHint);
+        skillIdEl.addEventListener('click', function () { setTimeout(refreshSkillHint, 0); });
+        refreshSkillHint();
+    }
+
+    function showOverlay() {
+        overlay.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+    }
+    function hideOverlay() {
+        overlay.classList.remove('is-open');
+        document.body.style.overflow = '';
+    }
+    function setProgress(done, total) {
+        var pct = total > 0 ? Math.min(100, (done / total) * 100) : 0;
+        progressEl.style.width = pct + '%';
+        statsEl.textContent = done + ' / ' + total + ' dosya';
+    }
+
+    function escapeHtml(s) {
+        if (!s) return '';
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function renderHits(hits, execTime, truncated, state) {
+        resultsWrap.style.display = 'block';
+        var st = state === 'aborted' ? ' (iptal edildi — kısmi sonuçlar)' : '';
+        var tr = truncated ? ' · Sonuç limiti doldu' : '';
+        resultsMeta.innerHTML = 'Süre: <strong class="mono" style="color:var(--text);">' + (execTime != null ? execTime : '—') + '</strong> sn · '
+            + '<strong class="mono" style="color:var(--text);">' + hits.length + '</strong> satır' + tr + st;
+
+        if (!hits.length) {
+            resultsTable.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></div><p>Eşleşme bulunamadı.</p></div>';
+            return;
+        }
+        var query = document.getElementById('query').value.toLowerCase();
+        var rows = hits.map(function (h, idx) {
+            var snippet = escapeHtml(h.snippet);
+            if (query) {
+                var regex = new RegExp('(' + escapeRegExp(query) + ')', 'gi');
+                snippet = snippet.replace(regex, '<span class="highlight">$1</span>');
+            }
+            return '<tr data-index="' + idx + '"><td><span style="color:var(--accent2);font-size:0.82rem;">' + escapeHtml(h.rel_path) + '</span><br><span style="color:var(--muted);font-size:0.8rem;">' + escapeHtml(h.file) + '</span></td><td class="mono">' + h.line_no + '</td><td style="font-size:0.82rem;max-width:520px;"><div style="max-height:140px;overflow:auto;white-space:pre-wrap;color:#cbd5e1;">' + snippet + '</div><div class="result-actions"><button class="action-btn" data-action="copy" data-index="' + idx + '" data-tooltip="Kopyala"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button><button class="action-btn" data-action="preview" data-index="' + idx + '" data-tooltip="Önizle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div></td></tr>';
+        }).join('');
+        resultsTable.innerHTML = '<div class="filter-bar"><input type="text" class="filter-input" id="resultFilter" placeholder="Sonuçları filtrele..."></div><table class="data" style="margin:0;"><thead><tr><th>Konum</th><th>Satır</th><th>Önizleme</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function stopPoll() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+        currentJobId = null;
+    }
+
+    function pollJob(jobId) {
+        stopPoll();
+        currentJobId = jobId;
+        pollTimer = setInterval(function () {
+            fetch('{{ url_for("logs_api_search_poll", job_id="__ID__") }}'.replace('__ID__', encodeURIComponent(jobId)))
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (!d.ok) return;
+                    setProgress(d.files_done || 0, d.files_total || 0);
+                    if (d.state === 'running') {
+                        subEl.textContent = 'Eşleşme toplanıyor…';
+                        return;
+                    }
+                    stopPoll();
+                    hideOverlay();
+                    if (d.state === 'aborted') {
+                        statusTitle.textContent = 'İptal edildi';
+                        subEl.textContent = 'Son kısmi sonuçlar gösteriliyor.';
+                        clientError.style.display = 'none';
+                        renderHits(d.hits || [], d.exec_time, d.truncated, d.state);
+                    } else if (d.state === 'error') {
+                        statusTitle.textContent = 'Hata';
+                        subEl.textContent = d.error || 'Bilinmeyen hata';
+                        clientError.style.display = 'block';
+                        clientError.textContent = d.error || 'Hata';
+                        resultsWrap.style.display = 'block';
+                        resultsMeta.textContent = '';
+                        resultsTable.innerHTML = '<div class="alert alert-error" style="margin:0;">' + escapeHtml(d.error || 'Hata') + '</div>';
+                    } else {
+                        statusTitle.textContent = 'Bitti';
+                        subEl.textContent = 'Tamamlandı.';
+                        clientError.style.display = 'none';
+                        renderHits(d.hits || [], d.exec_time, d.truncated, d.state);
+                    }
+                })
+                .catch(function () {
+                    stopPoll();
+                    hideOverlay();
+                    clientError.style.display = 'block';
+                    clientError.textContent = 'Ağ hatası — durum alınamadı.';
+                });
+        }, 400);
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        clientError.style.display = 'none';
+        statusTitle.textContent = 'Tarama çalışıyor';
+        subEl.textContent = 'Kuyruk başlatılıyor…';
+        setProgress(0, 0);
+        showOverlay();
+
+        var skillEl = document.getElementById('skill_id');
+        var body = {
+            part: document.getElementById('part').value,
+            skill_id: skillEl ? skillEl.value : 'all',
+            mode: document.getElementById('mode').value,
+            query: document.getElementById('query').value,
+            max_results: parseInt(document.getElementById('max_results').value, 10),
+            max_per_file: parseInt(document.getElementById('max_per_file').value, 10),
+            workers: parseInt(document.getElementById('workers').value, 10),
+            use_rg: document.getElementById('use_rg').checked,
+            case_insensitive: document.getElementById('case_insensitive').checked,
+            strict_tc: document.getElementById('strict_tc').checked,
+            deduplicate: document.getElementById('deduplicate').checked,
+            boolean_mode: document.getElementById('boolean_mode').checked
+        };
+
+        fetch('{{ url_for("logs_api_search_start") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        })
+            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+            .then(function (x) {
+                if (!x.ok || !x.j.ok) {
+                    hideOverlay();
+                    clientError.style.display = 'block';
+                    clientError.textContent = (x.j && x.j.error) ? x.j.error : 'İstek reddedildi';
+                    return;
+                }
+                pollJob(x.j.job_id);
+            })
+            .catch(function () {
+                hideOverlay();
+                clientError.style.display = 'block';
+                clientError.textContent = 'Sunucuya bağlanılamadı.';
+            });
+    });
+
+    btnAbort.addEventListener('click', function () {
+        if (!currentJobId) return;
+        fetch('{{ url_for("logs_api_search_abort", job_id="__ID__") }}'.replace('__ID__', encodeURIComponent(currentJobId)), { method: 'POST' })
+            .catch(function () {});
+        subEl.textContent = 'İptal istendi, işçiler duruyor…';
+    });
+
+    (function () {
+        var skFilter = document.getElementById('skill-filter');
+        var skSel = document.getElementById('skill_id');
+        if (!skFilter || !skSel) return;
+        skFilter.addEventListener('input', function () {
+            var q = skFilter.value.trim().toLowerCase();
+            var groups = skSel.getElementsByTagName('optgroup');
+            for (var g = 0; g < groups.length; g++) {
+                var og = groups[g];
+                var opts = og.getElementsByTagName('option');
+                var showGroup = false;
+                for (var i = 0; i < opts.length; i++) {
+                    var o = opts[i];
+                    var lab = (o.getAttribute('data-label') || o.textContent || '').toLowerCase();
+                    var show = !q || lab.indexOf(q) !== -1;
+                    o.hidden = !show;
+                    o.style.display = show ? '' : 'none';
+                    if (show) showGroup = true;
+                }
+                og.style.display = showGroup ? '' : 'none';
+            }
+            var allOpt = skSel.querySelector('option[value="all"]');
+            if (allOpt) { allOpt.hidden = false; allOpt.style.display = ''; }
+        });
+    })();
+
+    // Export functionality
+    var btnExport = document.getElementById('btnExport');
+    var exportDropdown = document.getElementById('exportDropdown');
+    var exportMenu = document.getElementById('exportMenu');
+    var lastJobId = null;
+    var lastHits = [];
+
+    // Update renderHits to store last data
+    var originalRenderHits = renderHits;
+    renderHits = function(hits, execTime, truncated, state) {
+        lastHits = hits;
+        if (hits && hits.length > 0) {
+            exportDropdown.style.display = 'inline-block';
+        } else {
+            exportDropdown.style.display = 'none';
+        }
+        originalRenderHits(hits, execTime, truncated, state);
+    };
+
+    // Store job ID when polling
+    var originalPollJob = pollJob;
+    pollJob = function(jobId) {
+        lastJobId = jobId;
+        originalPollJob(jobId);
+    };
+
+    // Export dropdown toggle
+    btnExport.addEventListener('click', function(e) {
+        e.stopPropagation();
+        exportMenu.classList.toggle('is-open');
+    });
+
+    // Export menu item clicks
+    exportMenu.addEventListener('click', function(e) {
+        var item = e.target.closest('.export-item');
+        if (!item) return;
+        var format = item.getAttribute('data-format');
+        if (!lastJobId) return;
+        window.location.href = '{{ url_for("logs_api_search_export", job_id="__ID__", format="__FMT__") }}'
+            .replace('__ID__', encodeURIComponent(lastJobId))
+            .replace('__FMT__', encodeURIComponent(format));
+        exportMenu.classList.remove('is-open');
+        showToast(format.toUpperCase() + ' dışa aktarılıyor...', 'info');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function() {
+        exportMenu.classList.remove('is-open');
+    });
+
+    // Toast notification function
+    function showToast(message, type) {
+        type = type || 'info';
+        var container = document.getElementById('toastContainer');
+        var toast = document.createElement('div');
+        toast.className = 'toast ' + type;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(function() {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100px)';
+            setTimeout(function() { container.removeChild(toast); }, 300);
+        }, 3000);
+    }
+
+    // Modal helpers
+    function openModal(id) {
+        document.getElementById(id).classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('is-open');
+        document.body.style.overflow = '';
+    }
+
+    // History functionality
+    var btnHistory = document.getElementById('btnHistory');
+    var historyModal = document.getElementById('historyModal');
+    var historyList = document.getElementById('historyList');
+    var closeHistory = document.getElementById('closeHistory');
+    var clearHistoryBtn = document.getElementById('clearHistory');
+
+    btnHistory.addEventListener('click', function() {
+        fetch('{{ url_for("logs_api_history") }}')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (!d.ok) return;
+                var history = d.history || [];
+                if (history.length === 0) {
+                    historyList.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div><p>Arama geçmişi boş.</p></div>';
+                } else {
+                    historyList.innerHTML = history.map(function(h, i) {
+                        return '<div class="history-item" data-index="' + i + '"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;"><span style="color:var(--accent2);font-size:0.85rem;">' + h.timestamp + '</span><button class="replay-btn" data-index="' + i + '">↻ Tekrar ara</button></div><div style="font-size:0.9rem;"><strong>Mod:</strong> ' + h.mode + '<br><strong>Sorgu:</strong> ' + (h.query || '(boş)') + '<br><strong>Sonuç:</strong> ' + h.hit_count + ' eşleşme · <strong>Süre:</strong> ' + h.exec_time + ' sn</div></div>';
+                    }).join('');
+                }
+                openModal('historyModal');
+            });
+    });
+
+    closeHistory.addEventListener('click', function() { closeModal('historyModal'); });
+    clearHistoryBtn.addEventListener('click', function() {
+        fetch('{{ url_for("logs_api_history_clear") }}', { method: 'POST' })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.ok) {
+                    showToast('Geçmiş temizlendi', 'success');
+                    historyList.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div><p>Arama geçmişi boş.</p></div>';
+                }
+            });
+    });
+
+    // Statistics functionality
+    var btnStats = document.getElementById('btnStats');
+    var statsModal = document.getElementById('statsModal');
+    var statsGrid = document.getElementById('statsGrid');
+    var modeDistribution = document.getElementById('modeDistribution');
+    var closeStats = document.getElementById('closeStats');
+
+    btnStats.addEventListener('click', function() {
+        fetch('{{ url_for("logs_api_stats") }}')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (!d.ok) return;
+                statsGrid.innerHTML = '<div class="stat-card"><div class="stat-value">' + d.total_parts + '</div><div class="stat-label">Toplam Part</div></div><div class="stat-card"><div class="stat-value">' + d.total_txt_files + '</div><div class="stat-label">TXT Dosyası</div></div><div class="stat-card"><div class="stat-value">' + d.total_searches + '</div><div class="stat-label">Toplam Arama</div></div>';
+                var modeHtml = '<h3 style="margin:1.5rem 0 1rem;font-size:1.1rem;">Mod Dağılımı</h3><div style="display:flex;flex-wrap:wrap;gap:0.5rem;">';
+                for (var mode in d.mode_distribution) {
+                    modeHtml += '<span style="padding:0.4rem 0.8rem;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(99,102,241,0.15);font-size:0.85rem;">' + mode + ': ' + d.mode_distribution[mode] + '</span>';
+                }
+                modeHtml += '</div>';
+                modeDistribution.innerHTML = modeHtml;
+                openModal('statsModal');
+            });
+    });
+
+    closeStats.addEventListener('click', function() { closeModal('statsModal'); });
+
+    // Preview modal
+    var previewModal = document.getElementById('previewModal');
+    var previewContent = document.getElementById('previewContent');
+    var closePreview = document.getElementById('closePreview');
+
+    closePreview.addEventListener('click', function() { closeModal('previewModal'); });
+
+    // Result actions (copy, preview)
+    resultsTable.addEventListener('click', function(e) {
+        var actionBtn = e.target.closest('.action-btn');
+        if (!actionBtn) return;
+        var action = actionBtn.getAttribute('data-action');
+        var index = parseInt(actionBtn.getAttribute('data-index'), 10);
+        var hit = lastHits[index];
+        if (!hit) return;
+        if (action === 'copy') {
+            navigator.clipboard.writeText(hit.snippet).then(function() {
+                showToast('Kopyalandı', 'success');
+            }).catch(function() {
+                showToast('Kopyalama başarısız', 'error');
+            });
+        } else if (action === 'preview') {
+            previewContent.textContent = hit.snippet;
+            openModal('previewModal');
+        }
+    });
+
+    // Result filtering
+    var resultFilter = document.getElementById('resultFilter');
+    if (resultFilter) {
+        resultFilter.addEventListener('input', function() {
+            var filter = this.value.toLowerCase();
+            var rows = resultsTable.querySelectorAll('tbody tr');
+            rows.forEach(function(row) {
+                var text = row.textContent.toLowerCase();
+                row.style.display = filter && text.indexOf(filter) === -1 ? 'none' : '';
+            });
+        });
+    }
+
+    // History replay
+    historyList.addEventListener('click', function(e) {
+        var replayBtn = e.target.closest('.replay-btn');
+        if (!replayBtn) return;
+        var index = parseInt(replayBtn.getAttribute('data-index'), 10);
+        fetch('{{ url_for("logs_api_history") }}')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (!d.ok) return;
+                var history = d.history || [];
+                var h = history[index];
+                if (!h) return;
+                closeModal('historyModal');
+                document.getElementById('mode').value = h.mode;
+                document.getElementById('query').value = h.query || '';
+                document.getElementById('part').value = h.part || 'all';
+                var skillEl = document.getElementById('skill_id');
+                if (skillEl) skillEl.value = h.skill_id || 'all';
+                form.dispatchEvent(new Event('submit'));
+                showToast('Arama yeniden başlatılıyor...', 'info');
+            });
+    });
+
+    // Theme toggle
+    var btnTheme = document.getElementById('btnTheme');
+    var isDark = localStorage.getItem('theme') === 'dark';
+    function applyTheme() {
+        if (isDark) {
+            document.body.style.setProperty('--bg', '#0f172a');
+            document.body.style.setProperty('--surface', '#1e293b');
+            document.body.style.setProperty('--border', '#334155');
+            document.body.style.setProperty('--text', '#f1f5f9');
+            document.body.style.setProperty('--muted', '#94a3b8');
+        } else {
+            document.body.style.setProperty('--bg', '#f8fafc');
+            document.body.style.setProperty('--surface', '#ffffff');
+            document.body.style.setProperty('--border', '#e2e8f0');
+            document.body.style.setProperty('--text', '#0f172a');
+            document.body.style.setProperty('--muted', '#64748b');
+        }
+    }
+    applyTheme();
+    btnTheme.addEventListener('click', function() {
+        isDark = !isDark;
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        applyTheme();
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+Enter: Submit search
+        if (e.ctrlKey && e.key === 'Enter') {
+            e.preventDefault();
+            form.dispatchEvent(new Event('submit'));
+        }
+        // Ctrl+Shift+H: Show history
+        if (e.ctrlKey && e.shiftKey && e.key === 'H') {
+            e.preventDefault();
+            btnHistory.click();
+        }
+        // Ctrl+Shift+S: Show stats
+        if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+            e.preventDefault();
+            btnStats.click();
+        }
+        // Ctrl+Shift+T: Toggle theme
+        if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+            e.preventDefault();
+            btnTheme.click();
+        }
+        // Escape: Abort search
+        if (e.key === 'Escape' && overlay.classList.contains('is-open')) {
+            e.preventDefault();
+            btnAbort.click();
+        }
+    });
+
+    // Save search history on completion
+    var originalPollJobHandler = pollJob;
+    pollJob = function(jobId) {
+        originalPollJobHandler(jobId);
+        var originalInterval = pollTimer;
+        var checkComplete = setInterval(function() {
+            fetch('{{ url_for("logs_api_search_poll", job_id="__ID__") }}'.replace('__ID__', encodeURIComponent(jobId)))
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.state === 'done' || d.state === 'error' || d.state === 'aborted') {
+                        clearInterval(checkComplete);
+                        if (d.state === 'done' && d.hits && d.hits.length > 0) {
+                            fetch('{{ url_for("logs_api_history") }}', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    mode: document.getElementById('mode').value,
+                                    query: document.getElementById('query').value,
+                                    part: document.getElementById('part').value,
+                                    skill_id: document.getElementById('skill_id').value,
+                                    hit_count: d.hit_count,
+                                    exec_time: d.exec_time
+                                })
+                            });
+                        }
+                    }
+                });
+        }, 1000);
+    };
+})();
+</script>
+{% endif %}
+{% endblock %}
