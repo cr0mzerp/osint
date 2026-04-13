@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+{% block title %}Ana sayfa · Leak OSINT{% endblock %}
+
+{% block extra_css %}
+@keyframes countPop {
+    0% { transform: scale(0.6); opacity: 0; }
+    60% { transform: scale(1.08); }
+    100% { transform: scale(1); opacity: 1; }
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+.bento {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+@media (max-width: 900px) { .bento { grid-template-columns: 1fr; } }
+.bento-item {
+    padding: 1.15rem 1.25rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+    transition: transform 0.3s ease, border-color 0.3s;
+    animation: slideUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.bento-item:nth-child(1) { animation-delay: 0.05s; }
+.bento-item:nth-child(2) { animation-delay: 0.12s; }
+.bento-item:nth-child(3) { animation-delay: 0.18s; }
+.bento-item:hover {
+    transform: translateY(-3px) scale(1.02);
+    border-color: rgba(129, 140, 248, 0.35);
+}
+.bento-item h3 {
+    margin: 0 0 0.35rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--accent2);
+}
+.bento-item p { margin: 0; font-size: 0.85rem; color: var(--muted); line-height: 1.45; }
+.hero-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+#skill-count {
+    font-variant-numeric: tabular-nums;
+    animation: countPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    animation-delay: 0.2s;
+}
+.cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin-top: 1.25rem;
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+.stat-card {
+    padding: 1.25rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+    text-align: center;
+    animation: slideUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stat-card:nth-child(1) { animation-delay: 0.05s; }
+.stat-card:nth-child(2) { animation-delay: 0.1s; }
+.stat-card:nth-child(3) { animation-delay: 0.15s; }
+.stat-card:nth-child(4) { animation-delay: 0.2s; }
+.stat-card .value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--accent);
+    margin: 0.5rem 0;
+}
+.stat-card .label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.feature-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+.feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    animation: slideUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.feature-item:nth-child(1) { animation-delay: 0.25s; }
+.feature-item:nth-child(2) { animation-delay: 0.3s; }
+.feature-item:nth-child(3) { animation-delay: 0.35s; }
+.feature-item:nth-child(4) { animation-delay: 0.4s; }
+.feature-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+.feature-text h4 {
+    margin: 0 0 0.25rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+}
+.feature-text p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.4;
+}
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #22c55e;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.status-indicator.offline {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse 2s infinite;
+}
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div class="hero-row">
+        <span class="stat-pill"><span class="mono">{{ skills|length }}</span> skill (referans)</span>
+        <span class="stat-pill">Yerel TXT tarama</span>
+        <span class="stat-pill">Uzak servis yok</span>
+        {% if current_user.is_authenticated %}
+        <span class="status-indicator">
+            <span class="status-dot"></span>
+            Çevrimiçi
+        </span>
+        {% endif %}
+    </div>
+    <h1>OSINT Terminal</h1>
+    <p>
+        Bu uygulama <strong>yalnızca bilgisayarınızdaki</strong> metin tabanında arama yapar.
+        <strong id="skill-count">{{ skills|length }}</strong> skill (veri kategorisi) vardır: <span class="mono">discord</span> → token/webhook, <span class="mono">email</span> → şifre/kimlik, <span class="mono">wallet</span> → seed/cüzdan, <span class="mono">telegram</span> → bot token/kanal vb. <strong>Yerel TXT</strong> sayfasında seçtiğiniz skill, o kategorideki dosyaları tarar. Buradaki liste hızlı önizleme içindir.
+    </p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="label">Skill Kategorisi</div>
+        <div class="value">{{ skills|length }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Dosya Türü</div>
+        <div class="value">.txt</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Arama Modu</div>
+        <div class="value">Yerel</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Güvenlik</div>
+        <div class="value">100%</div>
+    </div>
+</div>
+
+<div class="feature-list">
+    <div class="feature-item">
+        <div class="feature-icon">🔍</div>
+        <div class="feature-text">
+            <h4>Hızlı Arama</h4>
+            <p>Part klasörlerinde paralel tarama</p>
+        </div>
+    </div>
+    <div class="feature-item">
+        <div class="feature-icon">🎯</div>
+        <div class="feature-text">
+            <h4>Skill Filtreleme</h4>
+            <p>Kategoriye göre dosya süzme</p>
+        </div>
+    </div>
+    <div class="feature-item">
+        <div class="feature-icon">📊</div>
+        <div class="feature-text">
+            <h4>Gerçek Zamanlı</h4>
+            <p>Anlık ilerleme takibi</p>
+        </div>
+    </div>
+    <div class="feature-item">
+        <div class="feature-icon">🔒</div>
+        <div class="feature-text">
+            <h4>Güvenli</h4>
+            <p>Veri bilgisayarınızda kalır</p>
+        </div>
+    </div>
+</div>
+
+<div class="bento">
+    <div class="bento-item">
+        <h3>Yerel arama</h3>
+        <p>Part klasörleri ve büyük dosyalar için satır bazlı tarama, iptal edilebilir arka plan işi.</p>
+    </div>
+    <div class="bento-item">
+        <h3>Skill = kategori süzgeci</h3>
+        <p>Her skill bir veri kategorisini temsil eder. Örn. <span class="mono">discord</span> → token, webhook; <span class="mono">email</span> → şifre/kimlik; <span class="mono">wallet</span> → seed/cüzdan. Seçtiğiniz skill yalnızca ilgili dosyaları tarar.</p>
+    </div>
+    <div class="bento-item">
+        <h3>Yapılandırma</h3>
+        <p>Kök dizin: <code>OSINT_LOG_ROOT</code> ortam değişkeni veya <code>app.py</code> içindeki varsayılan yol.</p>
+    </div>
+</div>
+
+<div class="card" style="animation: slideUp 0.75s 0.15s cubic-bezier(0.22, 1, 0.36, 1) both;">
+    <h2 style="margin:0 0 0.75rem;font-size:1.05rem;font-weight:800;">TXT tabanında tara</h2>
+    <p style="margin:0 0 1rem;color:var(--muted);font-size:0.92rem;">
+        Tüm arama burada yapılır. Uzak API veya 5244 portu kullanılmaz.
+    </p>
+    <div class="cta-row">
+        <a href="{{ url_for('logs_page') }}" class="btn btn-primary" style="text-decoration:none;">Yerel TXT aramaya git →</a>
+    </div>
+</div>
+
+<div class="card" style="margin-top:1.35rem;animation: slideUp 0.75s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;">
+    <h2 style="margin:0 0 0.65rem;font-size:1.05rem;font-weight:800;">Skill referans listesi</h2>
+    <p style="margin:0 0 1rem;color:var(--muted);font-size:0.88rem;">Yerel TXT sayfasında aynı skill'ler yol süzgeci olarak kullanılır. Aşağıda bir satır seçince ipucu görünür.</p>
+    <div>
+        <label for="skill-filter">Süzgeç</label>
+        <input type="text" id="skill-filter" placeholder="Örn. discord, e-posta, forum…" autocomplete="off"
+               style="margin-bottom:0.65rem;">
+        <label for="category">Tüm skiller</label>
+        <select id="category" size="12" style="min-height:220px;font-size:0.88rem;" aria-label="Skill listesi" aria-describedby="homeSkillHint">
+            {% set sorted_skills = skills|sort(attribute='path_keyword') %}
+            {% for group, items in sorted_skills|groupby('path_keyword') %}
+            <optgroup label="{{ skill_group_labels.get(group, group|upper) if skill_group_labels is defined else group|upper }}">
+                {% for skill in items %}
+                <option value="{{ skill.id }}"
+                        data-label="{{ (skill.name ~ ' ' ~ skill.path_keyword)|lower }}"
+                        data-hint="{{ skill.hint|e }}"
+                        title="{{ skill.hint|e }}">
+                    [{{ skill.priority }}] {{ skill.name }} ({{ skill.path_keyword }})
+                </option>
+                {% endfor %}
+            </optgroup>
+            {% endfor %}
+        </select>
+        <div style="margin-top:0.85rem;padding:1rem;border-radius:12px;background:rgba(0,0,0,0.28);border:1px solid var(--border);">
+            <strong style="color:var(--accent2);font-size:0.78rem;text-transform:uppercase;">İpucu</strong>
+            <p id="homeSkillHint" style="margin:0.45rem 0 0;font-size:0.88rem;color:var(--muted);line-height:1.55;">Listeden bir skill seçin.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var filter = document.getElementById('skill-filter');
+    var sel = document.getElementById('category');
+    var homeHint = document.getElementById('homeSkillHint');
+    function refreshHomeHint() {
+        if (!sel || !homeHint) return;
+        var o = sel.options[sel.selectedIndex];
+        homeHint.textContent = o ? (o.getAttribute('data-hint') || 'Listeden bir skill seçin.') : '';
+    }
+    if (sel && homeHint) {
+        sel.addEventListener('change', refreshHomeHint);
+        sel.addEventListener('keyup', refreshHomeHint);
+        sel.addEventListener('click', function () { setTimeout(refreshHomeHint, 0); });
+        refreshHomeHint();
+    }
+    if (!filter || !sel) return;
+    filter.addEventListener('input', function () {
+        var q = filter.value.trim().toLowerCase();
+        var groups = sel.getElementsByTagName('optgroup');
+        for (var g = 0; g < groups.length; g++) {
+            var og = groups[g];
+            var opts = og.getElementsByTagName('option');
+            var showGroup = false;
+            for (var i = 0; i < opts.length; i++) {
+                var o = opts[i];
+                var lab = (o.getAttribute('data-label') || o.textContent || '').toLowerCase();
+                var show = !q || lab.indexOf(q) !== -1;
+                o.hidden = !show;
+                o.style.display = show ? '' : 'none';
+                if (show) showGroup = true;
+            }
+            og.style.display = showGroup ? '' : 'none';
+        }
+    });
+})();
+</script>
+{% endblock %}
